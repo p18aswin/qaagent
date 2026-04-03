@@ -1,0 +1,16 @@
+{
+  "sprint": "Sprint 42",
+  "stories": [
+    {
+      "id": "NEXT-1234",
+      "title": "Paste your story title here",
+      "description": "Paste the full story description here",
+      "acceptance_criteria": [
+        "AC1: Paste acceptance criteria here",
+        "AC2: Paste another acceptance criteria here"
+      ],
+      "type": "feature",
+      "modules_affected": ["briefing"]
+    }
+  ]
+}
