@@ -11,11 +11,12 @@ const Anthropic = require("@anthropic-ai/sdk").default;
 const { extractPageState, formatPageStateForLLM } = require("./dom-analyzer");
 
 class ExplorationEngine {
-  constructor({ page, config, stories, logger }) {
+  constructor({ page, config, stories, logger, abortCheck }) {
     this.page = page;
     this.config = config;
     this.stories = stories;
     this.logger = logger;
+    this.abortCheck = abortCheck || (() => false);
     this.visitedUrls = new Set();
     this.actionCount = 0;
     this.maxActions = config.exploration?.max_actions || 50;
@@ -88,7 +89,7 @@ At each step, you receive the current page state (DOM analysis) and you decide w
     console.log("\n🔍 Starting exploration...\n");
     console.log(`Strategy: breadth-first | Max actions: ${this.maxActions}\n`);
 
-    while (this.actionCount < this.maxActions) {
+    while (this.actionCount < this.maxActions && !this.abortCheck()) {
       try {
         // 1. Extract current page state
         const pageState = await extractPageState(this.page);
