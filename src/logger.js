@@ -70,13 +70,18 @@ class ExplorationLogger {
       timestamp: new Date().toISOString(),
       elapsed_ms: Date.now() - this.startTime,
       type: "FINDING",
+      result: finding.result || "Fail",
       ...finding,
     };
     this.entries.push(entry);
     this.findings.push(entry);
-    this._print(`⚠️  FINDING [${finding.severity}] ${finding.description.slice(0, 100)}`);
+    const tag = entry.result === "Pass" ? "✅ PASS" : `❌ FAIL [${finding.severity || ""}]`;
+    this._print(`${tag} ${(finding.description || "").slice(0, 100)}`);
     return entry;
   }
+
+  // Default no-op; StreamingLogger overrides to broadcast.
+  signalThinking(_on) {}
 
   logError(error) {
     const entry = {

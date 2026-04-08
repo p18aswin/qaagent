@@ -54,32 +54,41 @@ let activeBrowser = null;
 
 // ── API Endpoints ──
 
+// Helper to safely load a config file
+function loadConfigFile(filename, defaultVal) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(__dirname, "config", filename), "utf-8"));
+  } catch {
+    return defaultVal;
+  }
+}
+
 // GET /api/config — Return current config (with sensitive data masked)
 app.get("/api/config", (req, res) => {
   try {
-    const configDir = path.join(__dirname, "config");
-    const target = JSON.parse(fs.readFileSync(path.join(configDir, "target.json"), "utf-8"));
-    const stories = JSON.parse(fs.readFileSync(path.join(configDir, "stories.json"), "utf-8"));
-    const api = JSON.parse(fs.readFileSync(path.join(configDir, "api.json"), "utf-8"));
+    const target = loadConfigFile("target.json", { app_url: "", profiles: [] });
+    const stories = loadConfigFile("stories.json", { sprint: "", stories: [] });
+    const platform = loadConfigFile("platform_context.json", { blocks: [] });
+    const api = loadConfigFile("api.json", {});
 
-    // Mask API key
     const maskedKey = api.anthropic_api_key
       ? `${api.anthropic_api_key.slice(0, 12)}...${api.anthropic_api_key.slice(-4)}`
       : "NOT SET";
 
     res.json({
       target: {
-        app_url: target.app_url,
-        profiles: target.profiles?.map((p) => ({
+        app_url: target.app_url || "",
+        profiles: (target.profiles || []).map((p) => ({
           role: p.role,
           username: p.username,
-          scope: p.scope,
+          scope: p.scope || [],
           hasPassword: !!p.password && p.password !== "YOUR_PASSWORD_HERE",
         })),
-        exploration: target.exploration,
+        exploration: target.exploration || { strategy: "breadth", max_actions: 50 },
       },
       stories,
-      api: { model: api.model, apiKey: maskedKey },
+      platform,
+      api: { model: api.model, apiKey: maskedKey, configured: !!(api.anthropic_api_key && api.anthropic_api_key !== "YOUR_ANTHROPIC_API_KEY_HERE") },
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -101,17 +110,118 @@ app.post("/api/config/stories", (req, res) => {
 app.post("/api/config/target", (req, res) => {
   try {
     const targetPath = path.join(__dirname, "config", "target.json");
-    // Merge with existing (don't lose passwords if not provided)
-    const existing = JSON.parse(fs.readFileSync(targetPath, "utf-8"));
-    const merged = { ...existing, ...req.body };
-    if (req.body.profiles) {
-      merged.profiles = req.body.profiles.map((p, i) => ({
-        ...existing.profiles?.[i],
-        ...p,
-      }));
+    const existing = loadConfigFile("target.json", {});
+    // Merge profiles by role; preserve existing passwords if new payload doesn't include one
+    const merged = {
+      ...existing,
+      app_url: req.body.app_url ?? existing.app_url ?? "",
+      exploration: req.body.exploration ?? existing.exploration ?? { strategy: "breadth", max_actions: 50, screenshot_on: ["page_transition", "form_submit", "error_state", "anomaly"] },
+      login: existing.login || {
+        url: "/login",
+        username_selector: "input[name='username'], input[type='email'], #username, #email",
+        password_selector: "input[name='password'], input[type='password'], #password",
+        submit_selector: "button[type='submit'], input[type='submit'], button:has-text('Log in'), button:has-text('Sign in')",
+      },
+    };
+    if (Array.isArray(req.body.profiles)) {
+      const existingByRole = {};
+      (existing.profiles || []).forEach((p) => { existingByRole[p.role] = p; });
+      merged.profiles = req.body.profiles.map((p) => {
+        const prev = existingByRole[p.role] || {};
+        return {
+          role: p.role || prev.role || "",
+          username: p.username || prev.username || "",
+          // If password sent and non-empty use it; otherwise keep existing
+          password: (p.password && p.password.length > 0) ? p.password : (prev.password || ""),
+          scope: p.scope || prev.scope || [],
+        };
+      });
     }
     fs.writeFileSync(targetPath, JSON.stringify(merged, null, 2));
     res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/config/platform — Update platform context
+app.post("/api/config/platform", (req, res) => {
+  try {
+    const platformPath = path.join(__dirname, "config", "platform_context.json");
+    const blocks = Array.isArray(req.body.blocks) ? req.body.blocks : [];
+    fs.writeFileSync(platformPath, JSON.stringify({ blocks }, null, 2));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/plan — Generate a focused test plan via Claude before execution
+app.post("/api/plan", async (req, res) => {
+  try {
+    const { storyId } = req.body || {};
+    const apiConfig = loadConfigFile("api.json", {});
+    const storiesConfig = loadConfigFile("stories.json", { stories: [] });
+    const platformConfig = loadConfigFile("platform_context.json", { blocks: [] });
+
+    if (!apiConfig.anthropic_api_key || apiConfig.anthropic_api_key === "YOUR_ANTHROPIC_API_KEY_HERE") {
+      return res.status(400).json({ error: "API key not configured" });
+    }
+
+    // Find the requested story (or use first)
+    const story = storyId
+      ? storiesConfig.stories.find((s) => s.id === storyId)
+      : storiesConfig.stories[0];
+    if (!story) return res.status(400).json({ error: "No story available to plan" });
+
+    const platformText = (platformConfig.blocks || [])
+      .map((b) => `### ${b.title}\n${b.content}`)
+      .join("\n\n") || "No platform context provided.";
+
+    const planPrompt = `You are a senior QA test planner. Given a user story and platform context, generate a FOCUSED test plan that targets only the relevant areas. Avoid testing unrelated modules to save time and tokens.
+
+## User Story
+ID: ${story.id}
+Title: ${story.title}
+Description: ${story.description || ""}
+${story.acceptance_criteria?.length ? "Acceptance Criteria:\n" + story.acceptance_criteria.map((ac) => "- " + ac).join("\n") : ""}
+${story.modules_affected?.length ? "Modules affected: " + story.modules_affected.join(", ") : ""}
+
+## Platform Context
+${platformText}
+
+## Task
+Create a focused test plan. Output ONLY valid JSON, no markdown, no code fences:
+{
+  "summary": "1-sentence description of what you'll test",
+  "areas_to_test": [
+    { "name": "Area name", "what": "What you'll verify", "priority": "high|medium|low" }
+  ],
+  "areas_to_skip": [
+    { "name": "Area name", "reason": "Why you're skipping this" }
+  ],
+  "estimated_actions": <number 5-30>,
+  "rationale": "1-2 sentence explanation of why this scope is correct given the story and platform context"
+}`;
+
+    const Anthropic = require("@anthropic-ai/sdk").default;
+    const client = new Anthropic({ apiKey: apiConfig.anthropic_api_key });
+    const response = await client.messages.create({
+      model: apiConfig.model || "claude-sonnet-4-20250514",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: planPrompt }],
+    });
+    const text = response.content[0]?.text || "";
+    let plan;
+    try {
+      plan = JSON.parse(text.trim());
+    } catch {
+      const match = text.match(/\{[\s\S]*\}/);
+      plan = match ? JSON.parse(match[0]) : null;
+    }
+    if (!plan) return res.status(500).json({ error: "Failed to parse plan from LLM" });
+
+    res.json({ ok: true, plan, story });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -171,6 +281,41 @@ app.get("/api/sessions/:id", (req, res) => {
   }
 });
 
+// POST /api/open-report-folder — Open the latest (or a specific) session folder in the OS file explorer
+app.post("/api/open-report-folder", (req, res) => {
+  try {
+    const reportsDir = path.join(__dirname, "reports");
+    if (!fs.existsSync(reportsDir)) return res.status(404).json({ error: "No reports yet" });
+
+    let sessionId = req.body?.sessionId;
+    if (!sessionId) {
+      const sessions = fs.readdirSync(reportsDir)
+        .filter((d) => d.startsWith("session_"))
+        .sort();
+      sessionId = sessions[sessions.length - 1];
+    }
+    if (!sessionId) return res.status(404).json({ error: "No sessions available" });
+
+    const targetDir = path.join(reportsDir, sessionId);
+    if (!fs.existsSync(targetDir)) return res.status(404).json({ error: "Session folder not found" });
+
+    const { spawn } = require("child_process");
+    const platform = process.platform;
+    let cmd, cmdArgs;
+    if (platform === "darwin") { cmd = "open"; cmdArgs = [targetDir]; }
+    else if (platform === "win32") { cmd = "explorer"; cmdArgs = [targetDir]; }
+    else { cmd = "xdg-open"; cmdArgs = [targetDir]; }
+
+    const child = spawn(cmd, cmdArgs, { detached: true, stdio: "ignore" });
+    child.on("error", (err) => console.error("Failed to open folder:", err.message));
+    child.unref();
+
+    res.json({ ok: true, sessionId, path: targetDir });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/sessions/:id/screenshots/:file — Serve screenshot
 app.get("/api/sessions/:id/screenshots/:file", (req, res) => {
   const filePath = path.join(__dirname, "reports", req.params.id, "screenshots", req.params.file);
@@ -204,15 +349,16 @@ app.post("/api/explore", async (req, res) => {
     return res.status(409).json({ error: "Exploration already running. Stop it first." });
   }
 
-  const { profileRole, maxActions = 50, stories } = req.body;
+  const { profileRole, maxActions = 50, stories, plan } = req.body;
 
   // Load configs
   const configDir = path.join(__dirname, "config");
-  let apiConfig, targetConfig, storiesConfig;
+  let apiConfig, targetConfig, storiesConfig, platformConfig;
   try {
     apiConfig = JSON.parse(fs.readFileSync(path.join(configDir, "api.json"), "utf-8"));
     targetConfig = JSON.parse(fs.readFileSync(path.join(configDir, "target.json"), "utf-8"));
     storiesConfig = stories || JSON.parse(fs.readFileSync(path.join(configDir, "stories.json"), "utf-8"));
+    platformConfig = loadConfigFile("platform_context.json", { blocks: [] });
   } catch (e) {
     return res.status(500).json({ error: `Config error: ${e.message}` });
   }
@@ -245,13 +391,14 @@ app.post("/api/explore", async (req, res) => {
     findingsCount: 0,
     profile: activeProfile?.role || "default",
     aborted: false,
+    plan: plan || null,
   };
 
   broadcast({ type: "session_start", session: currentSession });
   res.json({ ok: true, sessionId: currentSession.id });
 
   // Run exploration in the background
-  runExploration(apiConfig, targetConfig, storiesConfig, activeProfile, maxActions, sessionDir);
+  runExploration(apiConfig, targetConfig, storiesConfig, platformConfig, activeProfile, maxActions, sessionDir, plan);
 });
 
 // POST /api/stop — Stop exploration
@@ -287,7 +434,7 @@ function broadcast(data) {
 }
 
 // ── Exploration Runner ──
-async function runExploration(apiConfig, targetConfig, storiesConfig, activeProfile, maxActions, sessionDir) {
+async function runExploration(apiConfig, targetConfig, storiesConfig, platformConfig, activeProfile, maxActions, sessionDir, plan) {
   // Create a streaming logger that broadcasts events
   const logger = new StreamingLogger(sessionDir, broadcast);
 
@@ -375,6 +522,8 @@ async function runExploration(apiConfig, targetConfig, storiesConfig, activeProf
         model: apiConfig.model,
         activeProfile,
         exploration: { ...targetConfig.exploration, max_actions: maxActions },
+        plan,
+        platformContext: platformConfig,
       },
       stories: storiesConfig,
       logger,
@@ -442,7 +591,11 @@ class StreamingLogger extends ExplorationLogger {
   logFinding(finding) {
     const entry = super.logFinding(finding);
     this.broadcast({ type: "entry", entry });
-    if (currentSession) currentSession.findingsCount++;
+    if (currentSession) {
+      if (entry.result === "Pass") currentSession.passCount = (currentSession.passCount || 0) + 1;
+      else currentSession.failCount = (currentSession.failCount || 0) + 1;
+      currentSession.findingsCount = (currentSession.findingsCount || 0) + 1;
+    }
     return entry;
   }
 
@@ -462,6 +615,10 @@ class StreamingLogger extends ExplorationLogger {
       });
     }
     return filepath;
+  }
+
+  signalThinking(on) {
+    this.broadcast({ type: "thinking", on: !!on });
   }
 }
 

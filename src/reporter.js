@@ -28,8 +28,9 @@ async function generateReport(logger, sessionDir, profileRole) {
     { header: "Actual Behavior / Observation", key: "actual", width: 30 },
     { header: "Result", key: "result", width: 10 },
     { header: "Severity", key: "severity", width: 12 },
+    { header: "Story Ref", key: "story_ref", width: 14 },
+    { header: "AC Ref", key: "ac_ref", width: 12 },
     { header: "Screenshot", key: "screenshot", width: 20 },
-    { header: "Jira Story Ref", key: "story_ref", width: 14 },
     { header: "Confidence", key: "confidence", width: 12 },
     { header: "Role Tested", key: "role", width: 14 },
     { header: "URL", key: "url", width: 35 },
@@ -45,41 +46,62 @@ async function generateReport(logger, sessionDir, profileRole) {
   // Add findings
   const findings = logger.findings;
   findings.forEach((finding, idx) => {
+    const isPass = finding.result === "Pass";
+    const sevDisplay = isPass ? "—" : ((finding.severity || "medium").charAt(0).toUpperCase() + (finding.severity || "medium").slice(1));
     const row = findingsSheet.addRow({
-      id: `EXP-${String(idx + 1).padStart(3, "0")}`,
+      id: `${isPass ? "PASS" : "FAIL"}-${String(idx + 1).padStart(3, "0")}`,
       module: _extractModule(finding.url || ""),
       description: finding.description || "",
       steps: _buildStepsFromLog(logger.entries, finding.step),
       expected: finding.expected || "",
       actual: finding.actual || "",
-      result: finding.severity === "critical" || finding.severity === "high" ? "Fail" : "Warning",
-      severity: (finding.severity || "medium").charAt(0).toUpperCase() + (finding.severity || "medium").slice(1),
-      screenshot: finding.screenshot ? path.basename(finding.screenshot) : "",
+      result: isPass ? "Pass" : "Fail",
+      severity: sevDisplay,
       story_ref: finding.story_ref || "",
+      ac_ref: finding.ac_ref || "",
+      screenshot: finding.screenshot ? path.basename(finding.screenshot) : "",
       confidence: finding.confidence ? `${finding.confidence}%` : "",
       role: profileRole || "",
       url: finding.url || "",
     });
 
-    // Conditional formatting for severity
-    const severityCell = row.getCell("severity");
-    const severityColors = { Critical: "FFEF4444", High: "FFF59E0B", Medium: "FF3B82F6", Low: "FF10B981" };
-    severityCell.fill = {
+    // Result cell styling — green for Pass, red for Fail
+    const resultCell = row.getCell("result");
+    resultCell.fill = {
       type: "pattern", pattern: "solid",
-      fgColor: { argb: severityColors[severityCell.value] || "FFE2E8F0" },
+      fgColor: { argb: isPass ? "FF10B981" : "FFEF4444" },
     };
-    severityCell.font = { color: { argb: "FFFFFFFF" }, bold: true, size: 10 };
+    resultCell.font = { color: { argb: "FFFFFFFF" }, bold: true, size: 10 };
+    resultCell.alignment = { horizontal: "center", vertical: "middle" };
 
-    // Style data rows
-    row.alignment = { vertical: "top", wrapText: true };
+    // Severity coloring (only meaningful for Fails)
+    const severityCell = row.getCell("severity");
+    if (!isPass) {
+      const severityColors = { Critical: "FFEF4444", High: "FFF59E0B", Medium: "FF3B82F6", Low: "FF94A3B8" };
+      severityCell.fill = {
+        type: "pattern", pattern: "solid",
+        fgColor: { argb: severityColors[severityCell.value] || "FFE2E8F0" },
+      };
+      severityCell.font = { color: { argb: "FFFFFFFF" }, bold: true, size: 10 };
+    } else {
+      severityCell.font = { color: { argb: "FF94A3B8" }, size: 10 };
+      severityCell.alignment = { horizontal: "center" };
+    }
+
+    row.alignment = row.alignment || { vertical: "top", wrapText: true };
     row.font = { size: 10, name: "Arial" };
   });
 
   // Auto-filter
-  findingsSheet.autoFilter = { from: "A1", to: `M${findings.length + 1}` };
+  const lastCol = String.fromCharCode(64 + findingsSheet.columns.length);
+  findingsSheet.autoFilter = { from: "A1", to: `${lastCol}${findings.length + 1}` };
 
   // ── Summary Sheet ──
   const summarySheet = workbook.addWorksheet("Exploration Summary");
+
+  const passes = findings.filter((f) => f.result === "Pass");
+  const fails = findings.filter((f) => f.result === "Fail");
+  const passRate = findings.length > 0 ? `${Math.round((passes.length / findings.length) * 100)}%` : "—";
 
   const summaryData = [
     ["QAAgent Exploration Report", ""],
@@ -89,14 +111,19 @@ async function generateReport(logger, sessionDir, profileRole) {
     ["Role Tested", profileRole || "N/A"],
     ["Total Actions", logger.entries.filter((e) => e.type === "ACTION").length],
     ["Pages Visited", new Set(logger.entries.filter((e) => e.type === "PERCEPTION").map((e) => e.url)).size],
-    ["Total Findings", findings.length],
     ["Duration", `${((logger.entries.slice(-1)[0]?.elapsed_ms || 0) / 1000).toFixed(0)}s`],
     ["", ""],
-    ["Findings by Severity", ""],
-    ["Critical", findings.filter((f) => f.severity === "critical").length],
-    ["High", findings.filter((f) => f.severity === "high").length],
-    ["Medium", findings.filter((f) => f.severity === "medium").length],
-    ["Low", findings.filter((f) => f.severity === "low").length],
+    ["Test Results", ""],
+    ["Total Test Cases", findings.length],
+    ["Passed", passes.length],
+    ["Failed", fails.length],
+    ["Pass Rate", passRate],
+    ["", ""],
+    ["Failures by Severity", ""],
+    ["Critical", fails.filter((f) => f.severity === "critical").length],
+    ["High", fails.filter((f) => f.severity === "high").length],
+    ["Medium", fails.filter((f) => f.severity === "medium").length],
+    ["Low", fails.filter((f) => f.severity === "low").length],
   ];
 
   summaryData.forEach((row, idx) => {
@@ -137,7 +164,7 @@ async function generateReport(logger, sessionDir, profileRole) {
         details = entry.thought;
         break;
       case "FINDING":
-        details = `[${entry.severity}] ${entry.description}`;
+        details = `[${entry.result || "?"}${entry.severity ? "/" + entry.severity : ""}] ${entry.description}`;
         break;
       case "ERROR":
         details = entry.message;
