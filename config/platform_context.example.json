@@ -1,0 +1,19 @@
+{
+  "blocks": [
+    {
+      "id": "platform-overview",
+      "title": "Platform Overview",
+      "content": "NEXT Collaborator is an omnichannel pharma engagement platform. Brand teams use it to brief Liaisons on marketing assets, track project status, manage briefings, and review insights. The platform has the following main modules: Dashboard, Briefing, Insights, Project Management, and Collaboration."
+    },
+    {
+      "id": "module-map",
+      "title": "Module Map",
+      "content": "1. Dashboard - Home page with shortcuts and key metrics\n2. Briefing - Create and manage briefs for marketing assets\n3. Insights - Data visualization and reporting\n4. Project Management - Track project status and milestones\n5. Collaboration - Conversation threads and stakeholder communication"
+    },
+    {
+      "id": "do-not-test",
+      "title": "Areas to Avoid",
+      "content": "Do not test billing, user management, or admin settings unless the story explicitly mentions them. These areas are tested separately by the security team."
+    }
+  ]
+}

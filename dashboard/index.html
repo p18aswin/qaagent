@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QAAgent</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --sidebar-bg: #0c1222;
+      --sidebar-border: #1a2540;
+      --bg: #111827;
+      --bg-card: #1a2332;
+      --bg-card-alt: #1e293b;
+      --bg-input: #0f1729;
+      --bg-hover: #243044;
+      --text: #e2e8f0;
+      --text-muted: #64748b;
+      --text-dim: #475569;
+      --border: #1e2d45;
+      --accent: #22c55e;
+      --accent-dim: rgba(34,197,94,0.15);
+      --blue: #3b82f6;
+      --blue-dim: rgba(59,130,246,0.15);
+      --red: #ef4444;
+      --red-dim: rgba(239,68,68,0.12);
+      --orange: #f59e0b;
+      --orange-dim: rgba(245,158,11,0.12);
+      --cyan: #06b6d4;
+      --purple: #a855f7;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ═══ LAYOUT ═══ */
+    .app { display: flex; height: 100vh; }
+
+    /* ═══ SIDEBAR ═══ */
+    .sidebar {
+      width: 230px; min-width: 230px;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--sidebar-border);
+      display: flex; flex-direction: column;
+      padding: 0;
+    }
+    .sidebar-brand {
+      padding: 20px 18px 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .sidebar-brand-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, #22c55e, #06b6d4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 800; color: #0c1222;
+    }
+    .sidebar-brand-info h2 { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+    .sidebar-brand-info span { font-size: 10px; color: var(--accent); font-weight: 600; }
+
+    .sidebar-newrun {
+      margin: 4px 16px 16px;
+      padding: 10px 0;
+      background: linear-gradient(135deg, #16a34a, #15803d);
+      border: none; border-radius: 8px;
+      color: white; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .sidebar-newrun:hover { background: linear-gradient(135deg, #22c55e, #16a34a); transform: translateY(-1px); }
+
+    .sidebar-nav { padding: 0 8px; }
+    .sidebar-nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-radius: 6px; cursor: pointer;
+      font-size: 13px; color: var(--text-muted); font-weight: 500;
+      transition: all 0.15s; margin-bottom: 2px;
+    }
+    .sidebar-nav-item:hover { background: var(--bg-hover); color: var(--text); }
+    .sidebar-nav-item.active { background: rgba(59,130,246,0.12); color: #93c5fd; }
+    .sidebar-nav-item .nav-icon { width: 18px; text-align: center; font-size: 14px; }
+
+    .sidebar-section {
+      padding: 16px 16px 8px;
+      font-size: 10px; font-weight: 700; color: var(--text-dim);
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .sidebar-story {
+      padding: 7px 16px; cursor: pointer;
+      font-size: 12px; color: var(--text-muted); transition: color 0.15s;
+    }
+    .sidebar-story:hover { color: var(--text); }
+    .sidebar-story-time { font-size: 10px; color: var(--text-dim); }
+
+    .sidebar-spacer { flex: 1; }
+
+    .sidebar-footer { padding: 8px; border-top: 1px solid var(--sidebar-border); }
+    .sidebar-footer-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border-radius: 6px; cursor: pointer;
+      font-size: 12px; color: var(--text-dim); transition: color 0.15s;
+    }
+    .sidebar-footer-item:hover { color: var(--text-muted); }
+
+    /* ═══ MAIN ═══ */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* ═══ TOP BAR ═══ */
+    .topbar {
+      height: 52px; min-height: 52px;
+      background: var(--sidebar-bg);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .topbar-title { font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: var(--text); text-transform: uppercase; }
+    .topbar-badge {
+      font-size: 10px; font-weight: 700; padding: 3px 8px;
+      border-radius: 4px; letter-spacing: 0.5px;
+    }
+    .topbar-badge.live { background: var(--accent-dim); color: var(--accent); }
+    .topbar-badge.engine { background: var(--blue-dim); color: var(--blue); }
+    .topbar-badge.idle { background: rgba(100,116,139,0.2); color: var(--text-muted); }
+    .topbar-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+    .topbar-dot.idle { background: var(--text-dim); }
+    .topbar-dot.live { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+    @keyframes thinkingBounce { 0%,80%,100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+    .thinking-dots { display: inline-flex; gap: 4px; }
+    .thinking-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; animation: thinkingBounce 1.2s infinite ease-in-out; }
+    .thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .thinking-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+    .topbar-right { display: flex; align-items: center; gap: 16px; }
+    .topbar-search {
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 12px;
+      font-size: 12px; color: var(--text-muted);
+      display: flex; align-items: center; gap: 6px; cursor: text;
+      min-width: 180px;
+    }
+    .topbar-icon { cursor: pointer; color: var(--text-muted); font-size: 16px; }
+    .topbar-icon:hover { color: var(--text); }
+    .topbar-avatar {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--orange), var(--red));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: white; cursor: pointer;
+    }
+
+    /* ═══ CONTENT ═══ */
+    .content { flex: 1; overflow-y: auto; }
+
+    /* ═══ CHAT VIEW ═══ */
+    .chat-container { display: flex; flex-direction: column; height: 100%; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+    .chat-msg { display: flex; gap: 10px; margin-bottom: 20px; max-width: 85%; }
+    .chat-msg.agent { align-self: flex-start; }
+    .chat-msg.user { align-self: flex-end; margin-left: auto; flex-direction: row-reverse; }
+
+    .chat-msg-avatar {
+      width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .chat-msg.agent .chat-msg-avatar { background: linear-gradient(135deg, #1d4ed8, #06b6d4); }
+    .chat-msg.user .chat-msg-avatar { background: var(--bg-card-alt); }
+
+    .chat-msg-bubble {
+      padding: 14px 18px; border-radius: 12px;
+      font-size: 13px; line-height: 1.65;
+    }
+    .chat-msg.agent .chat-msg-bubble {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-top-left-radius: 4px;
+    }
+    .chat-msg.user .chat-msg-bubble {
+      background: linear-gradient(135deg, #15803d, #166534);
+      border-top-right-radius: 4px;
+    }
+    .chat-msg-time { font-size: 10px; color: var(--text-dim); margin-top: 6px; }
+
+    .chat-code-block {
+      background: #0d1117; border: 1px solid var(--border);
+      border-radius: 8px; margin-top: 12px; overflow: hidden;
+    }
+    .chat-code-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 14px; background: #161b22;
+      font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .chat-code-status { color: var(--accent); font-size: 10px; font-weight: 700; }
+    .chat-code-body {
+      padding: 14px; font-family: 'JetBrains Mono', monospace;
+      font-size: 12px; line-height: 1.7; color: #e6edf3; overflow-x: auto;
+    }
+    .chat-code-body .line-num { color: var(--text-dim); margin-right: 16px; user-select: none; }
+    .chat-code-body .kw { color: #ff7b72; }
+    .chat-code-body .fn { color: #d2a8ff; }
+    .chat-code-body .str { color: #a5d6ff; }
+    .chat-code-body .cm { color: #8b949e; }
+    .chat-code-actions {
+      display: flex; gap: 0; border-top: 1px solid var(--border);
+    }
+    .chat-code-btn {
+      flex: 1; padding: 10px; text-align: center;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      background: transparent; border: none; color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .chat-code-btn:first-child { border-right: 1px solid var(--border); }
+    .chat-code-btn:hover { background: var(--bg-hover); color: var(--text); }
+    .chat-code-btn.primary { background: #1d4ed8; color: white; }
+    .chat-code-btn.primary:hover { background: #2563eb; }
+
+    .chat-quickactions {
+      display: flex; gap: 8px; padding: 8px 24px;
+      border-top: 1px solid var(--border);
+    }
+    .chat-quickaction {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: 6px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      font-size: 11px; font-weight: 600; color: var(--text-muted);
+      cursor: pointer; transition: all 0.15s; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .chat-quickaction:hover { border-color: var(--text-dim); color: var(--text); }
+    .chat-quickaction .qa-icon { font-size: 12px; }
+
+    .chat-input-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 20px; background: var(--sidebar-bg);
+      border-top: 1px solid var(--border);
+    }
+    .chat-input-attach {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-dim); font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .chat-input-attach:hover { color: var(--text-muted); }
+    .chat-input {
+      flex: 1; background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 16px;
+      font-size: 13px; color: var(--text); font-family: 'Inter', sans-serif;
+      outline: none; resize: none;
+    }
+    .chat-input::placeholder { color: var(--text-dim); }
+    .chat-input:focus { border-color: #2563eb; }
+    .chat-input-hint { font-size: 10px; color: var(--text-dim); white-space: nowrap; }
+    .chat-input-send {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border: none; cursor: pointer;
+      color: white; font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.15s;
+    }
+    .chat-input-send:hover { transform: scale(1.08); }
+    .chat-input-send:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .chat-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 24px; font-size: 10px; color: var(--text-dim);
+      border-top: 1px solid rgba(30,45,69,0.5);
+    }
+    .chat-footer-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; }
+    .chat-footer-dot.green { background: var(--accent); }
+    .chat-footer-dot.gray { background: var(--text-dim); }
+
+    /* ═══ DASHBOARD VIEW ═══ */
+    .dash-container { padding: 28px; overflow-y: auto; height: 100%; }
+    .dash-header {
+      display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;
+    }
+    .dash-header h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+    .dash-header p { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+    .dash-live-badge {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px; border-radius: 20px;
+      background: var(--accent-dim); color: var(--accent);
+      font-size: 12px; font-weight: 700;
+    }
+    .dash-live-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; }
+
+    .dash-grid-top { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .dash-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 24px;
+    }
+    .dash-card-label { font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+
+    .dash-success-rate { font-size: 56px; font-weight: 800; letter-spacing: -2px; font-family: 'JetBrains Mono', monospace; }
+    .dash-mini-bars { display: flex; gap: 3px; align-items: flex-end; height: 40px; margin-top: 4px; }
+    .dash-mini-bar { width: 12px; border-radius: 3px 3px 0 0; background: var(--accent); }
+
+    .dash-category-bars { display: flex; gap: 24px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .dash-cat-item { flex: 1; }
+    .dash-cat-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .dash-cat-val { font-size: 12px; font-weight: 700; color: var(--text); margin-left: 8px; }
+    .dash-cat-bar { height: 4px; background: var(--bg-input); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+    .dash-cat-bar-fill { height: 100%; border-radius: 2px; }
+
+    .dash-dist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .dash-dist-cell {
+      background: var(--bg-input); border-radius: 8px; padding: 16px;
+      border: 1px solid transparent;
+    }
+    .dash-dist-cell.fail { border-color: var(--red); }
+    .dash-dist-cell .dist-label { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+    .dash-dist-cell .dist-val { font-size: 28px; font-weight: 800; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+
+    /* ═══ RECENT RUNS TABLE ═══ */
+    .dash-table-card { margin-top: 16px; }
+    .dash-table-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+    }
+    .dash-table-header h3 { font-size: 15px; font-weight: 700; }
+    .dash-table-header a { font-size: 12px; color: var(--blue); cursor: pointer; text-decoration: none; font-weight: 500; }
+    .dash-table-header a:hover { text-decoration: underline; }
+
+    .dash-table { width: 100%; border-collapse: collapse; }
+    .dash-table th {
+      text-align: left; padding: 10px 16px;
+      font-size: 10px; font-weight: 700; color: var(--text-dim);
+      text-transform: uppercase; letter-spacing: 1px;
+      border-bottom: 1px solid var(--border);
+    }
+    .dash-table td { padding: 14px 16px; border-bottom: 1px solid rgba(30,45,69,0.4); font-size: 13px; }
+    .dash-table tr:hover td { background: rgba(59,130,246,0.03); }
+    .dash-table .run-name { font-weight: 600; }
+    .dash-table .run-id { font-size: 10px; color: var(--text-dim); }
+    .dash-table .env-badge {
+      display: inline-block; padding: 3px 10px; border-radius: 4px;
+      font-size: 11px; font-weight: 500; background: var(--bg-input); border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .status-icon { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+    .status-icon.pass { background: var(--accent); color: white; }
+    .status-icon.fail { background: var(--red); color: white; }
+
+    /* ═══ CONFIG VIEW ═══ */
+    .config-container { padding: 28px; overflow-y: auto; height: 100%; }
+    .config-container h1 { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
+    .config-container .subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+
+    .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .config-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .config-card-title {
+      font-size: 11px; font-weight: 700; color: var(--text-dim);
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px;
+      padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    }
+    .config-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
+    .config-key { font-size: 12px; color: var(--text-muted); }
+    .config-val { font-size: 12px; color: var(--text); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+    .config-val.ok { color: var(--accent); }
+    .config-val.warn { color: var(--orange); }
+
+    .config-input {
+      width: 100%; padding: 8px 12px; background: var(--bg-input);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: 12px; font-family: 'JetBrains Mono', monospace;
+      margin-top: 6px;
+    }
+    .config-input:focus { outline: none; border-color: var(--blue); }
+    .config-textarea { resize: vertical; min-height: 100px; font-family: 'JetBrains Mono', monospace; }
+
+    .config-btn {
+      padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 600;
+      border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+    }
+    .config-btn:hover { border-color: var(--text-dim); color: var(--text); }
+    .config-btn.primary { background: #1d4ed8; border-color: #1d4ed8; color: white; }
+    .config-btn.primary:hover { background: #2563eb; }
+
+    .config-profile {
+      padding: 10px 12px; background: var(--bg-input); border-radius: 6px;
+      margin-bottom: 8px;
+    }
+    .config-profile-role { font-size: 12px; font-weight: 700; color: var(--text); }
+    .config-profile-detail { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ═══ SCROLLBAR ═══ */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+    /* ═══ MISC ═══ */
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .text-accent { color: var(--accent); }
+    .text-blue { color: var(--blue); }
+    .text-red { color: var(--red); }
+    .text-orange { color: var(--orange); }
+    .text-muted { color: var(--text-muted); }
+    .inline-code { background: var(--bg-input); padding: 2px 6px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #93c5fd; }
+
+    .finding-expand {
+      background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px;
+      padding: 16px; margin-top: 10px;
+    }
+    .finding-expand h4 { font-size: 13px; font-weight: 700; color: var(--cyan); margin-bottom: 10px; }
+    .finding-field { margin-bottom: 8px; }
+    .finding-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+    .finding-value { font-size: 12px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    /* ═══ WS HOOK ═══ */
+    function useWebSocket(url) {
+      const [connected, setConnected] = useState(false);
+      const wsRef = useRef(null);
+      const listenersRef = useRef(new Set());
+
+      const connect = useCallback(() => {
+        const ws = new WebSocket(url);
+        wsRef.current = ws;
+        ws.onopen = () => setConnected(true);
+        ws.onclose = () => { setConnected(false); setTimeout(connect, 2000); };
+        ws.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            listenersRef.current.forEach(fn => fn(data));
+          } catch {}
+        };
+      }, [url]);
+
+      useEffect(() => { connect(); return () => wsRef.current?.close(); }, [connect]);
+
+      const subscribe = useCallback((fn) => {
+        listenersRef.current.add(fn);
+        return () => listenersRef.current.delete(fn);
+      }, []);
+
+      return { connected, subscribe };
+    }
+
+    /* ═══ TIME HELPERS ═══ */
+    function timeAgo(ms) {
+      if (!ms) return '';
+      const s = Math.floor(ms / 1000);
+      if (s < 60) return `${s}s`;
+      const m = Math.floor(s / 60);
+      if (m < 60) return `${m}m ${s % 60}s`;
+      return `${Math.floor(m / 60)}h ${m % 60}m`;
+    }
+    function nowTime() {
+      return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+
+    /* ═══ APP ═══ */
+    function App() {
+      const [view, setView] = useState('chat');
+      const [config, setConfig] = useState(null);
+      const [running, setRunning] = useState(false);
+      const [session, setSession] = useState(null);
+      const [timeline, setTimeline] = useState([]);
+      const [findings, setFindings] = useState([]);
+      const [screenshots, setScreenshots] = useState([]);
+      const [sessions, setSessions] = useState([]);
+      const [chatMessages, setChatMessages] = useState([]);
+      const [userInput, setUserInput] = useState('');
+      const [thinking, setThinking] = useState(false);
+
+      const { connected, subscribe } = useWebSocket(`ws://${window.location.host}`);
+
+      // Fetch config & sessions
+      useEffect(() => {
+        fetch('/api/config').then(r => r.json()).then(setConfig).catch(() => {});
+        fetch('/api/sessions').then(r => r.json()).then(setSessions).catch(() => {});
+      }, []);
+
+      // WS handler
+      useEffect(() => {
+        return subscribe((msg) => {
+          switch (msg.type) {
+            case 'status':
+              setRunning(msg.running);
+              if (msg.session) setSession(msg.session);
+              break;
+            case 'session_start':
+              setRunning(true);
+              setSession(msg.session);
+              setTimeline([]);
+              setFindings([]);
+              setScreenshots([]);
+              setChatMessages(prev => [...prev, {
+                role: 'agent', time: nowTime(),
+                text: `Starting exploration on ${msg.session.profile} profile. Max ${msg.session.maxActions} actions. I'll analyze the application and report findings in real-time.`,
+              }]);
+              setView('chat');
+              break;
+            case 'entry':
+              setTimeline(prev => [...prev, msg.entry]);
+              if (msg.entry.type === 'FINDING') {
+                setFindings(prev => [...prev, msg.entry]);
+                const isPass = msg.entry.result === 'Pass';
+                setChatMessages(prev => [...prev, {
+                  role: 'agent', time: nowTime(), type: 'finding', data: msg.entry,
+                  text: isPass
+                    ? `PASS: ${msg.entry.description}`
+                    : `FAIL [${(msg.entry.severity||'').toUpperCase()}]: ${msg.entry.description}`,
+                }]);
+              } else if (msg.entry.type === 'REASONING') {
+                setChatMessages(prev => {
+                  const last = prev[prev.length - 1];
+                  if (last && last.type === 'reasoning' && Date.now() - (last._ts||0) < 3000) {
+                    return [...prev.slice(0, -1), { ...last, text: msg.entry.thought, _ts: Date.now() }];
+                  }
+                  return [...prev, { role: 'agent', time: nowTime(), type: 'reasoning', text: msg.entry.thought, _ts: Date.now() }];
+                });
+              }
+              if (session) {
+                setSession(s => s ? ({
+                  ...s,
+                  actionCount: msg.entry.type === 'ACTION' ? (s.actionCount||0)+1 : s.actionCount,
+                  findingsCount: msg.entry.type === 'FINDING' ? (s.findingsCount||0)+1 : s.findingsCount,
+                }) : s);
+              }
+              break;
+            case 'screenshot':
+              setScreenshots(prev => [...prev, { filename: msg.filename, sessionId: msg.sessionId }]);
+              break;
+            case 'session_complete':
+              setRunning(false);
+              setThinking(false);
+              setSession(msg.session);
+              setChatMessages(prev => [...prev, {
+                role: 'agent', time: nowTime(), type: 'complete',
+                text: `Exploration complete. ${msg.session.findings || 0} findings across ${msg.session.actions || 0} actions. Report generated.`,
+              }]);
+              fetch('/api/sessions').then(r => r.json()).then(setSessions).catch(() => {});
+              break;
+            case 'session_error':
+              setRunning(false);
+              setThinking(false);
+              setChatMessages(prev => [...prev, { role: 'agent', time: nowTime(), type: 'error', text: `Error: ${msg.error}` }]);
+              break;
+            case 'log':
+              if (msg.entry?.message) {
+                setChatMessages(prev => [...prev, { role: 'agent', time: nowTime(), type: 'info', text: msg.entry.message }]);
+              }
+              break;
+            case 'thinking':
+              setThinking(!!msg.on);
+              break;
+          }
+        });
+      }, [subscribe, session]);
+
+      // Start exploration — Step 1: ask the agent for a test plan
+      async function startExploration(opts = {}) {
+        const profileRole = opts.profileRole || config?.target?.profiles?.[0]?.role;
+        const maxActions = opts.maxActions || config?.target?.exploration?.max_actions || 50;
+        const storyId = opts.storyId || config?.stories?.stories?.[0]?.id;
+        setChatMessages(prev => [...prev, {
+          role: 'user', time: nowTime(),
+          text: `Plan a test run as ${profileRole || 'default profile'}${storyId ? ' for ' + storyId : ''}.`,
+        }]);
+        setChatMessages(prev => [...prev, { role: 'agent', time: nowTime(), type: 'info', text: 'Analyzing sprint context and platform context to draft a focused test plan…' }]);
+        try {
+          const res = await fetch('/api/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ storyId }) });
+          const data = await res.json();
+          if (!res.ok) {
+            setChatMessages(prev => [...prev, { role: 'agent', time: nowTime(), type: 'error', text: data.error || 'Failed to generate plan' }]);
+            return;
+          }
+          setChatMessages(prev => [...prev, {
+            role: 'agent', time: nowTime(), type: 'plan',
+            plan: data.plan, story: data.story,
+            runOpts: { profileRole, maxActions },
+          }]);
+        } catch (e) {
+          setChatMessages(prev => [...prev, { role: 'agent', time: nowTime(), type: 'error', text: e.message }]);
+        }
+      }
+
+      // Step 2: user approved the plan — actually run it
+      async function approvePlan(plan, runOpts) {
+        const body = { profileRole: runOpts.profileRole, maxActions: runOpts.maxActions, plan };
+        setChatMessages(prev => [...prev, { role: 'user', time: nowTime(), text: 'Plan approved. Run it.' }]);
+        try {
+          const res = await fetch('/api/explore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          const data = await res.json();
+          if (!res.ok) setChatMessages(prev => [...prev, { role: 'agent', time: nowTime(), type: 'error', text: data.error }]);
+        } catch (e) {
+          setChatMessages(prev => [...prev, { role: 'agent', time: nowTime(), type: 'error', text: e.message }]);
+        }
+      }
+      function rejectPlan() {
+        setChatMessages(prev => [...prev, { role: 'user', time: nowTime(), text: 'Plan rejected. I\'ll adjust context and retry.' }]);
+      }
+      function reloadConfig() {
+        fetch('/api/config').then(r => r.json()).then(setConfig).catch(() => {});
+      }
+
+      async function stopExploration() {
+        await fetch('/api/stop', { method: 'POST' });
+        setChatMessages(prev => [...prev, { role: 'user', time: nowTime(), text: 'Stop exploration.' }]);
+      }
+
+      function handleSend() {
+        if (!userInput.trim()) return;
+        const text = userInput.trim();
+        setUserInput('');
+        setChatMessages(prev => [...prev, { role: 'user', time: nowTime(), text }]);
+        // Parse commands
+        if (text.toLowerCase().includes('start') && !running) {
+          startExploration();
+        } else if (text.toLowerCase().includes('stop') && running) {
+          stopExploration();
+        } else {
+          setChatMessages(prev => [...prev, {
+            role: 'agent', time: nowTime(),
+            text: running
+              ? "I'm currently exploring. I'll keep reporting findings here. Say 'stop' to end the session."
+              : "Ready to explore. Click '+ New Run' or type 'start' to begin an exploration session.",
+          }]);
+        }
+      }
+
+      // Dashboard stats
+      const totalActions = timeline.filter(e => e.type === 'ACTION').length;
+      const pagesVisited = new Set(timeline.filter(e => e.type === 'PERCEPTION').map(e => e.url)).size;
+      const fails = findings.filter(f => f.result === 'Fail');
+      const passes = findings.filter(f => f.result === 'Pass');
+      const criticals = fails.filter(f => f.severity === 'critical').length;
+      const highs = fails.filter(f => f.severity === 'high').length;
+      const mediums = fails.filter(f => f.severity === 'medium').length;
+      const lows = fails.filter(f => f.severity === 'low').length;
+
+      return (
+        <div className="app">
+          {/* ═══ SIDEBAR ═══ */}
+          <div className="sidebar">
+            <div className="sidebar-brand">
+              <div className="sidebar-brand-icon">QA</div>
+              <div className="sidebar-brand-info">
+                <h2>QAAgent</h2>
+                <span>V1.0 {running ? 'ACTIVE' : 'READY'}</span>
+              </div>
+            </div>
+
+            <button className="sidebar-newrun" onClick={() => { if (running) stopExploration(); else startExploration(); }}>
+              {running ? <span>&#9632; Stop Run</span> : <span>+ New Run</span>}
+            </button>
+
+            <div className="sidebar-nav">
+              <div className={`sidebar-nav-item ${view==='chat'?'active':''}`} onClick={() => setView('chat')}>
+                <span className="nav-icon">&#128172;</span> Chat
+              </div>
+              <div className={`sidebar-nav-item ${view==='dashboard'?'active':''}`} onClick={() => setView('dashboard')}>
+                <span className="nav-icon">&#9638;</span> Dashboard
+              </div>
+              <div className={`sidebar-nav-item ${view==='config'?'active':''}`} onClick={() => setView('config')}>
+                <span className="nav-icon">&#9881;</span> Config
+              </div>
+            </div>
+
+            <div className="sidebar-section">Recent Stories</div>
+            {config?.stories?.stories?.slice(0, 5).map((s, i) => (
+              <div key={i} className="sidebar-story">
+                <div>{s.title?.slice(0, 35)}{s.title?.length > 35 ? '...' : ''}</div>
+                <div className="sidebar-story-time">{s.id}</div>
+              </div>
+            ))}
+            {(!config?.stories?.stories?.length) && (
+              <div className="sidebar-story"><div className="sidebar-story-time">No stories loaded</div></div>
+            )}
+
+            <div className="sidebar-spacer" />
+
+            <div className="sidebar-footer">
+              <div className="sidebar-footer-item"><span>&#10067;</span> Help</div>
+              <div className="sidebar-footer-item">
+                <span style={{color: connected ? 'var(--accent)' : 'var(--red)'}}>&#9679;</span>
+                {connected ? 'Connected' : 'Disconnected'}
+              </div>
+            </div>
+          </div>
+
+          {/* ═══ MAIN ═══ */}
+          <div className="main">
+            <Topbar running={running} session={session} connected={connected} config={config} view={view} />
+            <div className="content">
+              {view === 'chat' && <ChatView messages={chatMessages} running={running} thinking={thinking} session={session} config={config} userInput={userInput} setUserInput={setUserInput} onSend={handleSend} onStart={startExploration} onStop={stopExploration} onApprove={approvePlan} onReject={rejectPlan} timeline={timeline} findings={findings} />}
+              {view === 'dashboard' && <DashboardView running={running} session={session} findings={findings} timeline={timeline} totalActions={totalActions} pagesVisited={pagesVisited} sessions={sessions} criticals={criticals} highs={highs} mediums={mediums} lows={lows} />}
+              {view === 'config' && <ConfigView config={config} onConfigChanged={reloadConfig} />}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ═══ TOPBAR ═══ */
+    function Topbar({ running, session, connected, config, view }) {
+      const viewLabels = { chat: 'Agent Chat', dashboard: 'QA Dashboard', config: 'Configuration' };
+      return (
+        <div className="topbar">
+          <div className="topbar-left">
+            <div className={`topbar-dot ${running ? 'live' : 'idle'}`} />
+            <span className="topbar-title">QAAgent {session?.id ? `- ${session.profile?.toUpperCase()}` : `- ${viewLabels[view]?.toUpperCase()}`}</span>
+            {running && <span className="topbar-badge live">LIVE_RUN</span>}
+            <span className="topbar-badge engine">CLAUDE_SONNET</span>
+          </div>
+          <div className="topbar-right">
+            <div className="topbar-search"><span>&#128269;</span> Search QA logs...</div>
+            <span className="topbar-icon">&#128276;</span>
+            <span className="topbar-icon">&#9881;</span>
+            <div className="topbar-avatar">A</div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ═══ CHAT VIEW ═══ */
+    function ChatView({ messages, running, thinking, session, config, userInput, setUserInput, onSend, onStart, onStop, onApprove, onReject, timeline, findings }) {
+      const messagesRef = useRef(null);
+      useEffect(() => {
+        if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+      }, [messages, thinking]);
+
+      const handleKey = (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onSend(); };
+
+      return (
+        <div className="chat-container">
+          <div className="chat-messages" ref={messagesRef}>
+            {messages.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--text-dim)' }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>&#129302;</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>QAAgent Ready</div>
+                <div style={{ fontSize: 13 }}>Click <strong>+ New Run</strong> or type "start" to begin exploring your application.</div>
+              </div>
+            )}
+            {messages.map((msg, i) => (
+              <ChatMessage key={i} msg={msg} session={session} onApprove={onApprove} onReject={onReject} />
+            ))}
+            {(thinking || (running && messages.length > 0)) && (
+              <div className="chat-msg agent">
+                <div className="chat-msg-avatar">&#9889;</div>
+                <div>
+                  <div className="chat-msg-bubble" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
+                    <span className="thinking-dots"><span></span><span></span><span></span></span>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>QAAgent is {thinking ? 'thinking' : 'working'}…</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Actions */}
+          <div className="chat-quickactions">
+            <div className="chat-quickaction" onClick={() => !running && onStart()}>
+              <span className="qa-icon">&#9654;</span> START RUN
+            </div>
+            <div className="chat-quickaction" onClick={() => running && onStop()}>
+              <span className="qa-icon">&#9632;</span> STOP RUN
+            </div>
+            <div className="chat-quickaction" onClick={async () => {
+              try {
+                const res = await fetch('/api/open-report-folder', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) });
+                const data = await res.json();
+                if (!res.ok) alert(data.error || 'Could not open report folder');
+              } catch (e) { alert(e.message); }
+            }}>
+              <span className="qa-icon">&#128196;</span> VIEW REPORT
+            </div>
+            <div className="chat-quickaction">
+              <span className="qa-icon">&#128247;</span> SCREENSHOT
+            </div>
+          </div>
+
+          {/* Input */}
+          <div className="chat-input-bar">
+            <button className="chat-input-attach">&#128206;</button>
+            <input
+              className="chat-input"
+              placeholder="Instruct the agent... (e.g. 'Start run as Brand Team with 30 actions')"
+              value={userInput}
+              onChange={e => setUserInput(e.target.value)}
+              onKeyDown={handleKey}
+            />
+            <span className="chat-input-hint">CMD + ENTER TO SEND</span>
+            <button className="chat-input-send" onClick={onSend} disabled={!userInput.trim()}>&#8593;</button>
+          </div>
+
+          {/* Footer */}
+          <div className="chat-footer">
+            <span><span className={`chat-footer-dot ${running ? 'green' : 'gray'}`} /> MODEL: {config?.api?.model?.toUpperCase() || 'CLAUDE-SONNET'} &nbsp;&nbsp; <span className="chat-footer-dot gray" /> LATENCY: —</span>
+            <span>{session?.id ? `ID: ${session.id.slice(0, 20)}` : 'NO ACTIVE SESSION'}</span>
+          </div>
+        </div>
+      );
+    }
+
+    /* ═══ PLAN CARD (editable) ═══ */
+    function PlanCard({ msg, onApprove, onReject }) {
+      const seed = msg.plan || {};
+      const [editing, setEditing] = useState(false);
+      const [dirty, setDirty] = useState(false);
+      const [summary, setSummary] = useState(seed.summary || '');
+      const [rationale, setRationale] = useState(seed.rationale || '');
+      const [estimated, setEstimated] = useState(seed.estimated_actions || 10);
+      const [areasTest, setAreasTest] = useState((seed.areas_to_test || []).map(a => ({ name: a.name||'', what: a.what||'', priority: a.priority||'medium' })));
+      const [areasSkip, setAreasSkip] = useState((seed.areas_to_skip || []).map(a => ({ name: a.name||'', reason: a.reason||'' })));
+
+      function mark() { if (!dirty) setDirty(true); }
+      function buildPlan() {
+        return {
+          summary, rationale,
+          estimated_actions: Number(estimated) || 0,
+          areas_to_test: areasTest.filter(a => a.name.trim()),
+          areas_to_skip: areasSkip.filter(a => a.name.trim()),
+        };
+      }
+
+      const inputStyle = { width: '100%', padding: '6px 8px', background: 'rgba(0,0,0,0.25)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 12, fontFamily: 'inherit' };
+      const lblStyle = { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 };
+      const miniBtn = { padding: '4px 8px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 11, cursor: 'pointer' };
+
+      return (
+        <div className="chat-msg agent">
+          <div className="chat-msg-avatar">&#128221;</div>
+          <div>
+            <div className="chat-msg-bubble">
+              <div style={{ marginBottom: 8 }}>
+                Here's my proposed test plan{msg.story?.id ? ` for ${msg.story.id}` : ''}. {editing ? 'Edit any field below, then approve.' : 'Edit, approve to run only this scope, or reject.'}
+              </div>
+              <div className="chat-code-block">
+                <div className="chat-code-header">
+                  <span>TEST PLAN {dirty && <span style={{ color:'var(--orange)', marginLeft:6 }}>· EDITED</span>}</span>
+                  <span className="chat-code-status" style={{ color: 'var(--accent)' }}>~{estimated || '?'} ACTIONS</span>
+                </div>
+                <div className="chat-code-body">
+                  {/* Summary */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={lblStyle}>Summary</div>
+                    {editing
+                      ? <input style={inputStyle} value={summary} onChange={e=>{setSummary(e.target.value); mark();}} />
+                      : <div className="cm">{summary || '—'}</div>}
+                  </div>
+
+                  {/* Areas to test */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 4 }}>
+                      <div style={lblStyle}>Areas to test</div>
+                      {editing && <button style={miniBtn} onClick={()=>{setAreasTest([...areasTest, {name:'', what:'', priority:'medium'}]); mark();}}>+ Add</button>}
+                    </div>
+                    {areasTest.length === 0 && <div style={{ color:'var(--text-dim)', fontSize:11, paddingLeft:8 }}>None</div>}
+                    {areasTest.map((a, i) => editing ? (
+                      <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 2fr 90px auto', gap:6, marginBottom:4 }}>
+                        <input style={inputStyle} placeholder="Name" value={a.name} onChange={e=>{const n=[...areasTest]; n[i]={...n[i], name:e.target.value}; setAreasTest(n); mark();}} />
+                        <input style={inputStyle} placeholder="What to test" value={a.what} onChange={e=>{const n=[...areasTest]; n[i]={...n[i], what:e.target.value}; setAreasTest(n); mark();}} />
+                        <select style={inputStyle} value={a.priority} onChange={e=>{const n=[...areasTest]; n[i]={...n[i], priority:e.target.value}; setAreasTest(n); mark();}}>
+                          <option value="high">high</option>
+                          <option value="medium">medium</option>
+                          <option value="low">low</option>
+                        </select>
+                        <button style={{...miniBtn, color:'var(--red)'}} onClick={()=>{setAreasTest(areasTest.filter((_,j)=>j!==i)); mark();}}>×</button>
+                      </div>
+                    ) : (
+                      <div key={i} style={{ paddingLeft: 8 }}>&middot; <strong>{a.name}</strong> [{a.priority}] — <span className="cm">{a.what}</span></div>
+                    ))}
+                  </div>
+
+                  {/* Areas to skip */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 4 }}>
+                      <div style={lblStyle}>Areas to skip</div>
+                      {editing && <button style={miniBtn} onClick={()=>{setAreasSkip([...areasSkip, {name:'', reason:''}]); mark();}}>+ Add</button>}
+                    </div>
+                    {areasSkip.length === 0 && <div style={{ color:'var(--text-dim)', fontSize:11, paddingLeft:8 }}>None</div>}
+                    {areasSkip.map((a, i) => editing ? (
+                      <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 2fr auto', gap:6, marginBottom:4 }}>
+                        <input style={inputStyle} placeholder="Name" value={a.name} onChange={e=>{const n=[...areasSkip]; n[i]={...n[i], name:e.target.value}; setAreasSkip(n); mark();}} />
+                        <input style={inputStyle} placeholder="Reason" value={a.reason} onChange={e=>{const n=[...areasSkip]; n[i]={...n[i], reason:e.target.value}; setAreasSkip(n); mark();}} />
+                        <button style={{...miniBtn, color:'var(--red)'}} onClick={()=>{setAreasSkip(areasSkip.filter((_,j)=>j!==i)); mark();}}>×</button>
+                      </div>
+                    ) : (
+                      <div key={i} style={{ paddingLeft: 8, color:'var(--text-dim)' }}>&middot; {a.name} — <span className="cm">{a.reason}</span></div>
+                    ))}
+                  </div>
+
+                  {/* Estimated actions + rationale */}
+                  <div style={{ display:'grid', gridTemplateColumns:'120px 1fr', gap:10 }}>
+                    <div>
+                      <div style={lblStyle}>Est. Actions</div>
+                      {editing
+                        ? <input type="number" min="1" style={inputStyle} value={estimated} onChange={e=>{setEstimated(e.target.value); mark();}} />
+                        : <div className="cm">{estimated}</div>}
+                    </div>
+                    <div>
+                      <div style={lblStyle}>Rationale</div>
+                      {editing
+                        ? <input style={inputStyle} value={rationale} onChange={e=>{setRationale(e.target.value); mark();}} />
+                        : <div className="cm">{rationale || '—'}</div>}
+                    </div>
+                  </div>
+                </div>
+                <div className="chat-code-actions">
+                  <button className="chat-code-btn primary" onClick={() => onApprove && onApprove(buildPlan(), msg.runOpts)}>Approve &amp; Run</button>
+                  {!editing && <button className="chat-code-btn" onClick={()=>setEditing(true)}>Edit Plan</button>}
+                  {editing && <button className="chat-code-btn" onClick={()=>setEditing(false)}>Done Editing</button>}
+                  <button className="chat-code-btn" onClick={() => onReject && onReject()}>Reject</button>
+                </div>
+              </div>
+            </div>
+            <div className="chat-msg-time">{msg.time}</div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ═══ CHAT MESSAGE ═══ */
+    function ChatMessage({ msg, session, onApprove, onReject }) {
+      if (msg.type === 'plan') {
+        return <PlanCard msg={msg} onApprove={onApprove} onReject={onReject} />;
+      }
+
+      if (msg.type === 'finding') {
+        const f = msg.data;
+        const isPass = f.result === 'Pass';
+        const sevColor = { critical: 'var(--red)', high: 'var(--orange)', medium: 'var(--blue)', low: 'var(--text-muted)' };
+        return (
+          <div className="chat-msg agent">
+            <div className="chat-msg-avatar">{isPass ? '\u2714' : '\u26A0'}</div>
+            <div>
+              <div className="chat-msg-bubble">
+                <div style={{marginBottom: 8}}>{isPass ? 'Verified — this acceptance criterion passes:' : 'Failure detected — this needs attention:'}</div>
+                <div className="chat-code-block">
+                  <div className="chat-code-header">
+                    <span>{isPass ? 'PASS' : `FAIL${f.severity ? ' · ' + f.severity.toUpperCase() : ''}`}{f.story_ref ? ` · ${f.story_ref}` : ''}{f.ac_ref ? ` · ${f.ac_ref}` : ''}</span>
+                    <span className="chat-code-status" style={{color: isPass ? 'var(--accent)' : (sevColor[f.severity] || 'var(--red)')}}>{isPass ? 'VERIFIED' : 'DETECTED'}</span>
+                  </div>
+                  <div className="chat-code-body">
+                    <div><span className="kw">Description:</span> {f.description}</div>
+                    {f.expected && <div><span className="kw">Expected:</span> {f.expected}</div>}
+                    {f.actual && <div><span className="kw">Actual:</span> {f.actual}</div>}
+                    {f.url && <div><span className="cm">URL: {f.url}</span></div>}
+                    {f.confidence && <div><span className="cm">Confidence: {f.confidence}%</span></div>}
+                  </div>
+                  <div className="chat-code-actions">
+                    {!isPass && <button className="chat-code-btn primary">Log to Jira</button>}
+                    <button className="chat-code-btn">Copy Details</button>
+                  </div>
+                </div>
+              </div>
+              <div className="chat-msg-time">{msg.time}</div>
+            </div>
+          </div>
+        );
+      }
+
+      if (msg.type === 'reasoning') {
+        return (
+          <div className="chat-msg agent">
+            <div className="chat-msg-avatar">&#9889;</div>
+            <div>
+              <div className="chat-msg-bubble" style={{borderColor: 'rgba(234,179,8,0.2)'}}>
+                <div style={{fontSize: 10, color: 'var(--orange)', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px'}}>Agent Reasoning</div>
+                {msg.text}
+              </div>
+              <div className="chat-msg-time">{msg.time}</div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className={`chat-msg ${msg.role}`}>
+          <div className="chat-msg-avatar">{msg.role === 'agent' ? '\u26A1' : 'A'}</div>
+          <div>
+            <div className="chat-msg-bubble">{msg.text}</div>
+            <div className="chat-msg-time">{msg.time} {msg.type === 'complete' && '\u00A0\u00A0VIEW LOGIC GRAPH'}</div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ═══ DASHBOARD VIEW ═══ */
+    function DashboardView({ running, session, findings, timeline, totalActions, pagesVisited, sessions, criticals, highs, mediums, lows }) {
+      const totalFindings = findings.length;
+      const passCount = findings.filter(f => f.result === 'Pass').length;
+      const failCount = findings.filter(f => f.result === 'Fail').length;
+      const successRate = totalFindings > 0 ? ((passCount / totalFindings) * 100).toFixed(1) : '—';
+      const barHeights = [28, 35, 32, 38, 24, 30, 36];
+
+      return (
+        <div className="dash-container">
+          <div className="dash-header">
+            <div>
+              <h1>QA Dashboard</h1>
+              <p>High-level overview of exploration performance.</p>
+            </div>
+            {running && (
+              <div className="dash-live-badge"><div className="dot" /> LIVE MONITORING</div>
+            )}
+          </div>
+
+          {/* Top Cards */}
+          <div className="dash-grid-top">
+            {/* Success Rate */}
+            <div className="dash-card">
+              <div className="dash-card-label">Global Success Rate</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div className="dash-success-rate">{typeof successRate === 'string' && successRate === '—' ? '—' : `${successRate}%`}</div>
+                <div className="dash-mini-bars">
+                  {barHeights.map((h, i) => (
+                    <div key={i} className="dash-mini-bar" style={{ height: h, opacity: 0.5 + (i * 0.07) }} />
+                  ))}
+                </div>
+              </div>
+              <div className="dash-category-bars">
+                <div className="dash-cat-item">
+                  <span className="dash-cat-label">Actions</span><span className="dash-cat-val">{totalActions}</span>
+                  <div className="dash-cat-bar"><div className="dash-cat-bar-fill" style={{ width: '100%', background: 'var(--blue)' }} /></div>
+                </div>
+                <div className="dash-cat-item">
+                  <span className="dash-cat-label">Pages</span><span className="dash-cat-val">{pagesVisited}</span>
+                  <div className="dash-cat-bar"><div className="dash-cat-bar-fill" style={{ width: `${Math.min(pagesVisited * 10, 100)}%`, background: 'var(--accent)' }} /></div>
+                </div>
+                <div className="dash-cat-item">
+                  <span className="dash-cat-label">Findings</span><span className="dash-cat-val">{totalFindings}</span>
+                  <div className="dash-cat-bar"><div className="dash-cat-bar-fill" style={{ width: `${Math.min(totalFindings * 5, 100)}%`, background: 'var(--orange)' }} /></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Distribution */}
+            <div className="dash-card">
+              <div className="dash-card-label">Finding Distribution</div>
+              <div className="dash-dist-grid">
+                <div className="dash-dist-cell">
+                  <div className="dist-label">Total Findings</div>
+                  <div className="dist-val">{totalFindings}</div>
+                </div>
+                <div className="dash-dist-cell">
+                  <div className="dist-label">Critical</div>
+                  <div className="dist-val text-red">{criticals}</div>
+                </div>
+                <div className="dash-dist-cell fail">
+                  <div className="dist-label">High</div>
+                  <div className="dist-val text-orange">{highs}</div>
+                </div>
+                <div className="dash-dist-cell">
+                  <div className="dist-label">Medium / Low</div>
+                  <div className="dist-val" style={{color: 'var(--blue)'}}>{mediums + lows}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Runs */}
+          <div className="dash-card dash-table-card" style={{ padding: 0 }}>
+            <div className="dash-table-header">
+              <h3>Recent Test Orchestrations</h3>
+              <a>View all runs</a>
+            </div>
+            <table className="dash-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Run Name</th>
+                  <th>Target Environment</th>
+                  <th>Duration</th>
+                  <th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessions.length === 0 && (
+                  <tr><td colSpan={5} style={{textAlign: 'center', color: 'var(--text-dim)', padding: 40}}>No sessions yet. Start an exploration to see results here.</td></tr>
+                )}
+                {sessions.slice(0, 6).map((s, i) => {
+                  const hasFails = s.findings > 0;
+                  const name = s.id.replace('session_', '').replace(/_/g, ' ');
+                  return (
+                    <tr key={i}>
+                      <td><span className={`status-icon ${hasFails ? 'fail' : 'pass'}`}>{hasFails ? '!' : '\u2713'}</span></td>
+                      <td><div className="run-name">{name.slice(0, 30)}</div><div className="run-id">ID: {s.id.slice(0, 16)}</div></td>
+                      <td><span className="env-badge">{s.id.includes('Brand') ? 'Staging-Brand' : s.id.includes('Liaison') ? 'Staging-Liaison' : 'Staging'}</span></td>
+                      <td style={{color: 'var(--text-muted)'}}>{s.actions || 0} actions</td>
+                      <td style={{color: 'var(--text-muted)'}}>{s.findings} findings</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    /* ═══ CONFIG VIEW ═══ */
+    function ConfigView({ config, onConfigChanged }) {
+      const [appUrl, setAppUrl] = useState('');
+      const [profiles, setProfiles] = useState([]);
+      const [sprint, setSprint] = useState('');
+      const [stories, setStories] = useState([]);
+      const [blocks, setBlocks] = useState([]);
+      const [savedFlash, setSavedFlash] = useState('');
+
+      useEffect(() => {
+        setAppUrl(config?.target?.app_url || '');
+        setProfiles((config?.target?.profiles || []).map(p => ({ role: p.role || '', username: p.username || '', password: '', scope: p.scope || [] })));
+        setSprint(config?.stories?.sprint || '');
+        setStories((config?.stories?.stories || []).map(s => ({
+          id: s.id || ('STORY-' + Math.random().toString(36).slice(2,7).toUpperCase()),
+          title: s.title || '',
+          description: s.description || '',
+          acceptance_criteria: s.acceptance_criteria || [],
+          _ac: (s.acceptance_criteria || []).join('\n'),
+        })));
+        setBlocks((config?.platform?.blocks || []).map(b => ({ id: b.id || ('block-'+Math.random().toString(36).slice(2,7)), title: b.title || '', content: b.content || '' })));
+      }, [config]);
+
+      function flash(msg) { setSavedFlash(msg); setTimeout(() => setSavedFlash(''), 2000); }
+
+      async function saveTarget() {
+        const payload = { app_url: appUrl, profiles: profiles.map(p => ({ role: p.role, username: p.username, password: p.password, scope: p.scope })) };
+        const res = await fetch('/api/config/target', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        if (res.ok) { flash('Target saved'); onConfigChanged && onConfigChanged(); }
+      }
+      async function saveStories() {
+        const payload = { sprint, stories: stories.map(s => ({ id: s.id, title: s.title, description: s.description, acceptance_criteria: s._ac.split('\n').map(x=>x.trim()).filter(Boolean) })) };
+        const res = await fetch('/api/config/stories', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        if (res.ok) { flash('Sprint saved'); onConfigChanged && onConfigChanged(); }
+      }
+      async function savePlatform() {
+        const payload = { blocks: blocks.map(b => ({ id: b.id, title: b.title, content: b.content })) };
+        const res = await fetch('/api/config/platform', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        if (res.ok) { flash('Platform context saved'); onConfigChanged && onConfigChanged(); }
+      }
+
+      const inputStyle = { width: '100%', padding: '8px 10px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', fontSize: 13, fontFamily: 'inherit' };
+      const labelStyle = { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4, display: 'block', fontWeight: 600 };
+      const btn = { padding: '8px 14px', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px' };
+      const btnGhost = { ...btn, background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)' };
+      const btnDanger = { ...btnGhost, color: 'var(--red)' };
+
+      return (
+        <div className="config-container">
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div>
+              <h1>Configuration</h1>
+              <p className="subtitle">Tell QAAgent what to test, who to test as, and what it should know about your platform.</p>
+            </div>
+            {savedFlash && <div style={{ padding: '6px 12px', background: 'rgba(34,197,94,0.15)', color: 'var(--accent)', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>{savedFlash}</div>}
+          </div>
+
+          {/* ── 1. TARGET APPLICATION ── */}
+          <div className="config-card" style={{ marginBottom: 20 }}>
+            <div className="config-card-title">1. Target Application</div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Application URL</label>
+              <input style={inputStyle} value={appUrl} onChange={e=>setAppUrl(e.target.value)} placeholder="https://staging.your-app.com" />
+            </div>
+            <div style={{ marginBottom: 8, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <label style={labelStyle}>Test Credentials &mdash; same story will be tested with each</label>
+              <button style={btnGhost} onClick={()=>setProfiles([...profiles, { role:'New Role', username:'', password:'', scope: [] }])}>+ Add Credential</button>
+            </div>
+            {profiles.length === 0 && <div style={{ color:'var(--text-dim)', fontSize:12, padding:12, textAlign:'center' }}>No credentials yet. Add one to get started.</div>}
+            {profiles.map((p, i) => (
+              <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr auto', gap:8, marginBottom:8, padding:10, background:'var(--bg-input)', borderRadius:8 }}>
+                <div><label style={labelStyle}>Role / Label</label><input style={inputStyle} value={p.role} onChange={e=>{const n=[...profiles]; n[i]={...n[i], role:e.target.value}; setProfiles(n);}} /></div>
+                <div><label style={labelStyle}>Username</label><input style={inputStyle} value={p.username} onChange={e=>{const n=[...profiles]; n[i]={...n[i], username:e.target.value}; setProfiles(n);}} /></div>
+                <div><label style={labelStyle}>Password</label><input type="password" style={inputStyle} placeholder="(unchanged)" value={p.password} onChange={e=>{const n=[...profiles]; n[i]={...n[i], password:e.target.value}; setProfiles(n);}} /></div>
+                <div style={{ display:'flex', alignItems:'flex-end' }}><button style={btnDanger} onClick={()=>setProfiles(profiles.filter((_,j)=>j!==i))}>Remove</button></div>
+              </div>
+            ))}
+            <div style={{ marginTop: 12, textAlign:'right' }}><button style={btn} onClick={saveTarget}>Save Target</button></div>
+          </div>
+
+          {/* ── 2. SPRINT CONTEXT ── */}
+          <div className="config-card" style={{ marginBottom: 20 }}>
+            <div className="config-card-title" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span>2. Sprint Context</span>
+              <button style={{...btnGhost, opacity:0.5, cursor:'not-allowed'}} disabled title="Coming soon">Fetch from Jira (Coming Soon)</button>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Sprint Name</label>
+              <input style={inputStyle} value={sprint} onChange={e=>setSprint(e.target.value)} placeholder="Sprint 2026.04" />
+            </div>
+            <div style={{ marginBottom: 8, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <label style={labelStyle}>User Stories</label>
+              <button style={btnGhost} onClick={()=>setStories([...stories, { id:'STORY-'+Math.random().toString(36).slice(2,7).toUpperCase(), title:'', description:'', acceptance_criteria:[], _ac:'' }])}>+ Add Story</button>
+            </div>
+            {stories.length === 0 && <div style={{ color:'var(--text-dim)', fontSize:12, padding:12, textAlign:'center' }}>No stories yet. Add one or fetch from Jira (coming soon).</div>}
+            {stories.map((s, i) => (
+              <div key={i} style={{ padding:12, background:'var(--bg-input)', borderRadius:8, marginBottom:10 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'140px 1fr auto', gap:8, marginBottom:8 }}>
+                  <div><label style={labelStyle}>ID</label><input style={inputStyle} value={s.id} onChange={e=>{const n=[...stories]; n[i]={...n[i], id:e.target.value}; setStories(n);}} /></div>
+                  <div><label style={labelStyle}>Title</label><input style={inputStyle} value={s.title} onChange={e=>{const n=[...stories]; n[i]={...n[i], title:e.target.value}; setStories(n);}} /></div>
+                  <div style={{ display:'flex', alignItems:'flex-end' }}><button style={btnDanger} onClick={()=>setStories(stories.filter((_,j)=>j!==i))}>Remove</button></div>
+                </div>
+                <div style={{ marginBottom:8 }}>
+                  <label style={labelStyle}>User Story / Description</label>
+                  <textarea style={{...inputStyle, minHeight:60, resize:'vertical'}} value={s.description} onChange={e=>{const n=[...stories]; n[i]={...n[i], description:e.target.value}; setStories(n);}} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Acceptance Criteria (one per line)</label>
+                  <textarea style={{...inputStyle, minHeight:70, resize:'vertical', fontFamily:'JetBrains Mono, monospace', fontSize:12}} value={s._ac} onChange={e=>{const n=[...stories]; n[i]={...n[i], _ac:e.target.value}; setStories(n);}} />
+                </div>
+              </div>
+            ))}
+            <div style={{ marginTop: 12, textAlign:'right' }}><button style={btn} onClick={saveStories}>Save Sprint</button></div>
+          </div>
+
+          {/* ── 3. PLATFORM CONTEXT ── */}
+          <div className="config-card" style={{ marginBottom: 20 }}>
+            <div className="config-card-title">
+              3. Platform Context <span style={{ fontSize:11, color:'var(--text-muted)', fontWeight:500, marginLeft:8 }}>&mdash; the brain. Tells QAAgent what your app is and what to skip.</span>
+            </div>
+            <div style={{ marginBottom: 8, display:'flex', justifyContent:'flex-end' }}>
+              <button style={btnGhost} onClick={()=>setBlocks([...blocks, { id:'block-'+Math.random().toString(36).slice(2,7), title:'', content:'' }])}>+ Add Context Block</button>
+            </div>
+            {blocks.length === 0 && <div style={{ color:'var(--text-dim)', fontSize:12, padding:12, textAlign:'center' }}>No platform context yet. Add blocks like "Module Map" or "Areas to Avoid" to focus testing.</div>}
+            {blocks.map((b, i) => (
+              <div key={i} style={{ padding:12, background:'var(--bg-input)', borderRadius:8, marginBottom:10 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:8, marginBottom:8 }}>
+                  <div><label style={labelStyle}>Block Title</label><input style={inputStyle} value={b.title} onChange={e=>{const n=[...blocks]; n[i]={...n[i], title:e.target.value}; setBlocks(n);}} placeholder="e.g. Module Map, Areas to Avoid" /></div>
+                  <div style={{ display:'flex', alignItems:'flex-end' }}><button style={btnDanger} onClick={()=>setBlocks(blocks.filter((_,j)=>j!==i))}>Remove</button></div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Content</label>
+                  <textarea style={{...inputStyle, minHeight:90, resize:'vertical'}} value={b.content} onChange={e=>{const n=[...blocks]; n[i]={...n[i], content:e.target.value}; setBlocks(n);}} placeholder="Describe a module, what to test, or what to skip..." />
+                </div>
+              </div>
+            ))}
+            <div style={{ marginTop: 12, textAlign:'right' }}><button style={btn} onClick={savePlatform}>Save Platform Context</button></div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ═══ MOUNT ═══ */
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

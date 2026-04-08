@@ -2,6 +2,8 @@
 
 An autonomous testing agent that explores your web application, discovers bugs, and generates structured reports — without writing a single test script.
 
+Comes with a real-time web dashboard for configuring sessions, watching the agent explore live, and browsing findings with full observability.
+
 ## Quick Start
 
 ### 1. Install dependencies
@@ -30,7 +32,7 @@ Edit three config files in `config/`:
   "profiles": [
     {
       "role": "Liaison",
-      "username": "test.liaison@indegene.com",
+      "username": "test.liaison@example.com",
       "password": "your-password"
     }
   ]
@@ -55,21 +57,20 @@ Edit three config files in `config/`:
 
 ### 3. Run
 
+**Web Dashboard (recommended)**
 ```bash
-# Default — uses first profile, 50 actions, headless
-node qaagent.js
+npm start                    # Opens dashboard at http://localhost:3000
+npm run start:headed         # Same, but shows the browser window
+```
 
-# Test as specific role
-node qaagent.js --profile "Liaison"
+Open `http://localhost:3000` to access the dashboard where you can configure sessions, start/stop exploration, and watch results in real-time.
 
-# Show the browser (useful for demos)
-node qaagent.js --headed
-
-# Limit exploration to 30 actions
-node qaagent.js --max-actions 30
-
-# Combine flags
-node qaagent.js --profile "Brand Team" --headed --max-actions 20
+**CLI mode**
+```bash
+npm run cli                            # Default — first profile, 50 actions, headless
+npm run cli -- --profile "Liaison"     # Test as specific role
+npm run cli -- --headed                # Show the browser
+npm run cli -- --max-actions 30        # Limit exploration steps
 ```
 
 ### 4. Review results
@@ -81,11 +82,28 @@ Reports are saved to `reports/session_<timestamp>_<role>/`:
 - `findings.json` — Just the findings
 - `screenshots/` — Screenshots at key moments
 
+## Web Dashboard
+
+The dashboard (`npm start`) provides four views:
+
+**Configure & Run** — Shows your loaded config (target URL, profiles, sprint stories, API key status). Select a profile, set max actions, and launch an exploration.
+
+**Live Monitor** — Real-time observability timeline. Every action, perception, reasoning thought, and finding streams in as it happens. Filterable by entry type. Shows live stats (actions, pages visited, findings, duration) and the latest screenshot.
+
+**Findings** — Severity breakdown (critical/high/medium/low) with a full findings table. Click any finding to expand a detail panel showing the agent's reasoning and perception context at the moment of discovery.
+
+**History** — Browse past sessions. Click any session to load its full timeline and findings.
+
+The dashboard uses Express + WebSocket on the backend to stream events from the exploration engine to the React frontend in real-time.
+
 ## Project Structure
 
 ```
 qaagent/
+  server.js             # Web dashboard server (Express + WebSocket)
   qaagent.js            # CLI entry point
+  dashboard/
+    index.html          # React dashboard (single-file, no build step)
   config/
     api.json            # Anthropic API key
     target.json         # Target app, credentials, exploration settings
@@ -107,7 +125,24 @@ qaagent/
 5. **Evaluate** — Claude assesses whether the result is expected or anomalous
 6. **Report** — Generates Excel report with all findings, screenshots, and reasoning
 
-The entire loop is logged for full observability — every action, perception, and reasoning step is recorded.
+The entire loop is logged for full observability — every action, perception, and reasoning step is recorded and streamed to the dashboard in real-time.
+
+## Architecture
+
+```
+Browser (Playwright)
+    ↕
+Exploration Engine (explorer.js)
+    ↕                    ↕
+Claude API          Streaming Logger
+(reasoning)         (WebSocket broadcast)
+    ↕                    ↕
+DOM Analyzer        Web Dashboard (React)
+(perception)        (real-time timeline)
+    ↕
+Excel Reporter
+(structured output)
+```
 
 ## Environment Variables
 
@@ -119,3 +154,11 @@ export QAAGENT_BRAND_TEAM_PASSWORD="your-password"
 ```
 
 The pattern is: `QAAGENT_<ROLE_NAME>_PASSWORD` (role name uppercased, spaces replaced with underscores).
+
+## Tech Stack
+
+- **AI:** Claude (Anthropic) for reasoning and test decision-making
+- **Browser Automation:** Playwright (Chromium)
+- **Backend:** Express + WebSocket (ws)
+- **Frontend:** React (CDN, no build step)
+- **Reports:** ExcelJS

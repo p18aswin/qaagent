@@ -3,11 +3,11 @@
   "stories": [
     {
       "id": "NEXT-1234",
-      "title": "Paste your story title here",
-      "description": "Paste the full story description here",
+      "title": "View my active projects shortcut from home page dashboard",
+      "description": "As a brand manager, I want to have a shortcut on the home page dashboard to view my active projects, so that I can quickly access them without navigating through multiple pages.",
       "acceptance_criteria": [
-        "AC1: Paste acceptance criteria here",
-        "AC2: Paste another acceptance criteria here"
+        "AC1: Given I have logged in, I should have the option to view my active projects directly from the home page dashboard.",
+        "AC2: Given I click on the 'Active Projects' shortcut, I should be taken to a page that lists all my active projects."
       ],
       "type": "feature",
       "modules_affected": ["briefing"]
